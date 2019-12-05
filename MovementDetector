@@ -1,0 +1,232 @@
+"""
+Created on Mon Dec  2 14:39:10 2019
+
+https://www.geeksforgeeks.org/webcam-motion-detector-python/
+
+@author: Yohan Reyes
+"""
+
+# =============================================================================
+# %% Globals
+# =============================================================================
+
+PATH = 'D:\\LifeWare Technologies\\Alarm System\\DataCapture\\Templates\\'
+PATH_Tracker = 'D:\\LifeWare Technologies\\Alarm System\\DataCapture\\'
+PATH_chrome = r'D:/LifeWare Technologies/Alarm System/DataCapture/Templates/chromedriver.exe'
+PATH_save = 'D:\\LifeWare Technologies\\Alarm System\\DataCapture\\'
+
+static_back = None
+
+motion_list = [ None, None ]
+
+time_ = []
+
+restrict_outputs = False
+record = False
+send_alerts = True
+
+
+# =============================================================================
+# %% Libs
+# =============================================================================
+
+import os, cv2, time, pandas, gc, threading
+
+from datetime import datetime 
+
+
+from selenium import webdriver
+from selenium.webdriver.support.ui import WebDriverWait
+from selenium.webdriver.support import expected_conditions as EC
+from selenium.webdriver.common.keys import Keys
+from selenium.webdriver.common.by import By
+
+# =============================================================================
+# %% Defs
+# =============================================================================
+
+def sendWA(string,target,wait,driver):
+    try:
+        x_arg = '//span[contains(@title,' + target + ')]'
+        group_title = wait.until(EC.presence_of_element_located((
+        By.XPATH, x_arg)))
+        # print (group_title)
+        # print ("Wait for few seconds")
+        group_title.click()
+        message = driver.find_elements_by_xpath('//*[@id="main"]/footer/div[1]/div[2]/div/div[2]')[0]
+        
+        message.send_keys(string)
+        sendbutton = driver.find_elements_by_xpath('//*[@id="main"]/footer/div[1]/div[3]/button')[0]
+        sendbutton.click()
+        print('Alert Sent')
+    except:
+        print('Error sending message. Check connection with the cellphone')
+
+
+# =============================================================================
+# %% Start Chrome Driver
+# =============================================================================
+
+if send_alerts:
+    driver = webdriver.Chrome(executable_path=PATH_chrome)
+    driver.get("https://web.whatsapp.com/")
+    wait = WebDriverWait(driver, 600)
+    
+    # target = '"Cliente1"'
+    target = '"Yo"'
+
+
+
+
+# =============================================================================
+# %% Start Video Capture
+# =============================================================================
+
+
+# Initializing DataFrame, one column is start
+# time and other column is end time
+df = pandas.DataFrame(columns = ["Start", "End"])
+
+os.chdir(PATH)  
+# Capturing video 
+# video = cv2.VideoCapture(0) 
+# video = cv2.VideoCapture('securityCamera0.mp4')
+# video = cv2.VideoCapture('securityCamera2.mp4')
+video = cv2.VideoCapture('securityCamera3.mp4')
+
+i0 = 0
+
+# Infinite while loop to treat stack of image as video 
+while True: 
+    i0 = i0+1
+    # Reading frame(image) from video 
+    check, frame = video.read() 
+  
+    # Initializing motion = 0(no motion) 
+    motion = 0
+  
+    # Converting color image to gray_scale image 
+    gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+  
+    # Converting gray scale image to GaussianBlur  
+    # so that change can be find easily 
+    gray = cv2.GaussianBlur(gray, (21, 21), 0)
+  
+    # In first iteration we assign the value  
+    # of static_back to our first frame 
+    
+    if ( (static_back is None) or ((i0 % 10) ==0) ):
+        static_back = gray
+        continue
+  
+    # Difference between static background  
+    # and current frame(which is GaussianBlur) 
+    diff_frame = cv2.absdiff(static_back, gray)
+  
+    # If change in between static background and 
+    # current frame is greater than 30 it will show white color(255) 
+    thresh_frame = cv2.threshold(diff_frame, 30, 255, cv2.THRESH_BINARY)[1]
+    thresh_frame = cv2.dilate(thresh_frame, None, iterations = 2)
+  
+    # Finding contour of moving object 
+    (contours,hierachy) = cv2.findContours(thresh_frame.copy(),
+                       cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+    
+    for contour in contours: 
+        if cv2.contourArea(contour) < 5000:
+            continue
+        motion = 1
+  
+        (x, y, w, h) = cv2.boundingRect(contour)
+        # making green rectangle arround the moving object 
+        cv2.rectangle(frame, (x, y), (x + w, y + h), (0, 255, 0), 3)
+  
+    # Appending status of motion 
+    motion_list.append(motion) 
+  
+    motion_list = motion_list[-2:] 
+    
+    # If motion Starts
+    if motion_list[-1] == 1 and motion_list[-2] == 0:
+        # time_.append(datetime.now())
+        # Save Frames?
+        if send_alerts:
+            string = [ 'Se detecto Actividad Justo ahora: ', str(datetime.now()) ]
+            string = ''.join(string)
+            # sendWA(string,target,wait,driver)
+            # x = threading.Thread(target=thread_function, args=(index,))
+            x = threading.Thread(target=sendWA, args=(string,target,wait,driver))
+            x.start()
+            # Save Frames?
+    
+    # If motion ends
+    # if motion_list[-1] == 0 and motion_list[-2] == 1:
+        # time_.append(datetime.now())
+        
+    
+    # Appending Start time of motion 
+    if (motion_list[-1] == 1 and motion_list[-2] == 0):
+        time_.append(datetime.now())
+        
+    # Appending End time of motion 
+    elif motion_list[-1] == 0 and motion_list[-2] == 1:
+        time_.append(datetime.now())
+    
+    if ((motion == 1) and record):
+        string = ''.join([PATH_save, 'frame_', str(datetime.now())[:-4], '.png'])
+        cv2.imwrite(string,frame)
+    
+    # Displaying image in gray_scale 
+    cv2.imshow("Gray Frame", gray)
+    
+    # Displaying the difference in currentframe to 
+    # the staticframe(very first_frame) 
+    cv2.imshow("Difference Frame", diff_frame)
+    
+    # Displaying the black and white image in which if 
+    # intencity difference greater than 30 it will appear white 
+    cv2.imshow("Threshold Frame", thresh_frame)
+    
+    # Displaying color frame with contour of motion of object 
+    cv2.imshow("Color Frame", frame)
+    
+    key = cv2.waitKey(1)
+    # if q entered whole process will stop 
+    if key == ord('q'):
+        # if something is movingthen it append the end time of movement 
+        if motion == 1: 
+            time_.append(datetime.now())
+        break
+    
+    
+    if ( (i0 % 100) == 0):
+        i0 = 0
+        gc.collect()
+
+
+# =============================================================================
+# %% Close Session
+# =============================================================================
+
+
+# Appending time of motion in DataFrame 
+'''
+for i in range(0, len(time_), 2):
+    df = df.append({"Start":time_[i], "End":time_[i + 1]}, ignore_index = True)
+'''
+
+# Creating a csv file in which time of movements will be saved 
+# df.to_csv("Time_of_movements.csv")
+  
+video.release() 
+  
+# Destroying all the windows 
+cv2.destroyAllWindows()
+
+
+# =============================================================================
+# %% End
+# =============================================================================
+
+
+
