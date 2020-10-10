@@ -10,10 +10,10 @@ https://www.geeksforgeeks.org/webcam-motion-detector-python/
 # %% Globals
 # =============================================================================
 
-PATH = 'D:\\LifeWare Technologies\\Alarm System\\DataCapture\\Templates\\'
-PATH_Tracker = 'D:\\LifeWare Technologies\\Alarm System\\DataCapture\\'
-PATH_chrome = r'D:/LifeWare Technologies/Alarm System/DataCapture/Templates/chromedriver.exe'
-PATH_save = 'D:\\LifeWare Technologies\\Alarm System\\DataCapture\\'
+PATH = 'D:\\Alarm System\\DataCapture\\Templates\\'
+PATH_Tracker = 'D:\\Alarm System\\DataCapture\\'
+PATH_chrome = r'D:/Alarm System/DataCapture/Templates/chromedriver.exe'
+PATH_save = 'D:\\Alarm System\\DataCapture\\'
 
 static_back = None
 
